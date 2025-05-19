@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from decouple import config
+from celery.schedules import crontab
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -134,3 +136,16 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+
+CELERY_BEAT_SCHEDULE = {
+    'make-api-for-ghl': {
+        'task': 'accounts.tasks.make_api_for_ghl',
+        'schedule': crontab(hour='*/20'),
+    }
+}
+
+
+
+GHL_CLIENT_ID = config("GHL_CLIENT_ID")
+GHL_CLIENT_SECRET = config("GHL_CLIENT_SECRET")

@@ -13,4 +13,5 @@ __pycache__/
 
 # Logs
 *.log
-media/
+media/*.pyc
+__pycache__/

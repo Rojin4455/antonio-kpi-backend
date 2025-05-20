@@ -29,6 +29,7 @@ class SalesPerformanceSerializer(serializers.Serializer):
     conversion_rate = serializers.FloatField()
     average_job_value = serializers.FloatField()
     total_sales = serializers.FloatField()
+    jobs_won = serializers.FloatField()
 
 
 class LeadSourceSerializer(serializers.Serializer):

@@ -157,21 +157,30 @@ class DashboardAPIView(GenericAPIView):
         # Count of leads generated (assuming all opportunities represent leads)
         leads_generated = Opportunity.objects.filter(
             created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date
+            created_timestamp__lte=end_date,
+            current_stage__name = "New Lead"
         ).count()
         
         # Count of quotes sent
         quotes_sent = Opportunity.objects.filter(
             created_timestamp__gte=start_date,
             created_timestamp__lte=end_date,
-            status='quoted'
+            current_stage__name='Quote Sent'
         ).count()
+
+        print("1222",Opportunity.objects.filter(current_stage__name='Quote Sent'))
         
         # Count of jobs booked
         jobs_booked = Opportunity.objects.filter(
             created_timestamp__gte=start_date,
             created_timestamp__lte=end_date,
-            status='won'
+            current_stage__name='Quote Booked'
+        ).count()
+
+        jobs_won = Opportunity.objects.filter(
+            created_timestamp__gte=start_date,
+            created_timestamp__lte=end_date,
+            current_stage__name='Won'
         ).count()
         
         # Calculate conversion rate
@@ -189,11 +198,14 @@ class DashboardAPIView(GenericAPIView):
         avg_job_value = 0
         if jobs_booked > 0:
             avg_job_value = total_sales / jobs_booked
+
+        print("jobs won: ", jobs_won)
         
         return {
             "leads_generated": leads_generated,
             "quotes_sent": quotes_sent,
             "jobs_booked": jobs_booked,
+            "jobs_won":jobs_won,
             "conversion_rate": round(conversion_rate, 2),
             "average_job_value": round(avg_job_value, 2),
             "total_sales": round(total_sales, 2)

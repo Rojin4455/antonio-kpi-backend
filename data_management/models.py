@@ -27,7 +27,7 @@ class PipelineStage(models.Model):
 class Contact(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    contact_id = models.CharField(max_length=150)
+    contact_id = models.CharField(max_length=150, default=0)
     full_name_lowercase = models.CharField(max_length=255)
     email = models.EmailField(null=True, blank=True)
     phone = models.CharField(max_length=20)
@@ -45,7 +45,7 @@ class Contact(models.Model):
 class Opportunity(models.Model):
     contact = models.ForeignKey(Contact, on_delete=models.CASCADE, related_name="opportunities")
     pipeline = models.ForeignKey(Pipeline, on_delete=models.SET_NULL, null=True, blank=True)
-    opportunity_id = models.CharField(max_length=150)
+    opportunity_id = models.CharField(max_length=150, default=0)
     current_stage = models.ForeignKey(PipelineStage, on_delete=models.SET_NULL, null=True, blank=True)
     created_by_source = models.CharField(max_length=50)
     created_by_channel = models.CharField(max_length=50)

@@ -9,7 +9,9 @@ from django.utils.timezone import make_aware
 
 
 def fetch_contact_xlsx():
-    filepath = "/Users/rojinsaji/Downloads/antonio_contacts.xlsx"
+  
+    filepath = "C:/Users/asuis/Downloads/antonio_contacts.xlsx"
+
     try:
         df = pd.read_excel(filepath)
     except Exception as e:
@@ -53,7 +55,7 @@ def fetch_contact_xlsx():
 
 
 def fetch_opportunities_xlsx():
-    filepath = "/Users/rojinsaji/Downloads/opportunities-_19_.xlsx"
+    filepath = "C:/Users/asuis/Downloads/opportunities-_19_.xlsx"
     try:
         df = pd.read_excel(filepath)
     except Exception as e:

@@ -3,14 +3,14 @@ from data_management.models import Contact, Pipeline, PipelineStage, Opportunity
 from datetime import datetime
 from django.utils.dateparse import parse_datetime
 from django.db import transaction
-from django.utils.timezone import make_aware
+from django.utils.timezone import make_aware,now, is_naive
 
 
 
 
 def fetch_contact_xlsx():
   
-    filepath = "C:/Users/asuis/Downloads/antonio_contacts.xlsx"
+    filepath = "/Users/rojinsaji/Downloads/antonio_contacts.xlsx"
 
     try:
         df = pd.read_excel(filepath)
@@ -19,6 +19,8 @@ def fetch_contact_xlsx():
         return
 
     for _, row in df.iterrows():
+        # print(row)
+        # break
         
         try:
             first_name = str(row.get("First Name", "")).strip()
@@ -32,7 +34,12 @@ def fetch_contact_xlsx():
             source = str(row.get("Source", "")).strip()
             tags = []  # Since 'Tags' is NaN in your sample, you can improve this later
             date_added_str = str(row.get("Created", "")).strip()
-            date_added = pd.to_datetime(date_added_str, errors='coerce') or datetime.now()
+            # date_added = pd.to_datetime(date_added_str, errors='coerce') or datetime.now()
+            date_added = pd.to_datetime(date_added_str, errors='coerce')
+            if pd.isna(date_added):
+                date_added = now()
+            elif is_naive(date_added):
+                date_added = make_aware(date_added)
 
             contact = Contact(
                 contact_id=contact_id,
@@ -55,7 +62,7 @@ def fetch_contact_xlsx():
 
 
 def fetch_opportunities_xlsx():
-    filepath = "C:/Users/asuis/Downloads/opportunities-_19_.xlsx"
+    filepath = "/Users/rojinsaji/Downloads/opportunities-_19_.xlsx"
     try:
         df = pd.read_excel(filepath)
     except Exception as e:

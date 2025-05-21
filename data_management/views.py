@@ -12,6 +12,8 @@ from collections import defaultdict
 
 from .models import Pipeline, PipelineStage, Contact, Opportunity
 from .serializers import DashboardSerializer  # We'll create this next
+from django.utils.timezone import now
+
 
 
 class DashboardAPIView(GenericAPIView):
@@ -27,13 +29,13 @@ class DashboardAPIView(GenericAPIView):
         try:
             start_date = request.query_params.get('start_date')
             end_date = request.query_params.get('end_date')
+
+
             
             if not start_date or not end_date:
-                return Response(
-                    {"error": "Both start_date and end_date parameters are required"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
+                start_date, end_date = self.get_default_date_range()
+
+              
             start_date = datetime.strptime(start_date, '%Y-%m-%d')
             end_date = datetime.strptime(end_date, '%Y-%m-%d')
             
@@ -267,3 +269,13 @@ class DashboardAPIView(GenericAPIView):
             "this_month": round(this_month_cash, 2),
             "next_30_days": round(next_30_days_cash, 2)
         }
+    
+
+    def get_default_date_range(self):
+        first_opportunity = Opportunity.objects.order_by("created_timestamp").first()
+        if first_opportunity and first_opportunity.created_timestamp:
+            start_date = first_opportunity.created_timestamp.date()
+        else:
+            start_date = now().date()
+        end_date = now().date()
+        return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')

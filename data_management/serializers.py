@@ -28,8 +28,8 @@ class SalesPerformanceSerializer(serializers.Serializer):
     jobs_booked = serializers.IntegerField()
     conversion_rate = serializers.FloatField()
     average_job_value = serializers.FloatField()
-    total_sales = serializers.FloatField()
-    jobs_won = serializers.FloatField()
+    # total_sales = serializers.FloatField()
+    # jobs_won = serializers.FloatField()
 
 
 class LeadSourceSerializer(serializers.Serializer):
@@ -52,3 +52,13 @@ class DashboardSerializer(serializers.Serializer):
     sales_performance = SalesPerformanceSerializer()
     lead_source_breakdown = LeadSourceSerializer(many=True)
     cashflow_snapshot = CashflowSnapshotSerializer()
+
+
+
+class RevenueMetricsSerializer(serializers.Serializer):
+    revenue_ytd = serializers.FloatField()
+    revenue_mtd = serializers.FloatField()
+    revenue_qtd = serializers.FloatField()
+    cash_collected = serializers.FloatField()
+    projected_revenue_week2 = serializers.FloatField()
+    pipeline_value = serializers.FloatField()

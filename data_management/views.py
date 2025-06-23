@@ -13,6 +13,9 @@ from collections import defaultdict
 from .models import Pipeline, PipelineStage, Contact, Opportunity
 from .serializers import DashboardSerializer  # We'll create this next
 from django.utils.timezone import now
+from rest_framework.views import APIView
+from .serializers import RevenueMetricsSerializer
+from rest_framework.permissions import AllowAny
 
 
 
@@ -57,6 +60,7 @@ class DashboardAPIView(GenericAPIView):
             "sales_performance": self.get_sales_performance(start_date, end_date),
             "lead_source_breakdown": self.get_lead_source_breakdown(start_date, end_date),
             "cashflow_snapshot": self.get_cashflow_snapshot(),
+            
         }
         
         serializer = self.get_serializer(dashboard_data)
@@ -68,7 +72,7 @@ class DashboardAPIView(GenericAPIView):
         opportunities = Opportunity.objects.filter(
             created_timestamp__gte=start_date,
             created_timestamp__lte=end_date,
-            status='won'
+            # status='won'
         ).annotate(
             month=ExtractMonth('created_timestamp'),
             year=ExtractYear('created_timestamp')
@@ -154,64 +158,54 @@ class DashboardAPIView(GenericAPIView):
             "total": round(pipeline_value, 2)
         }
     
+
     def get_sales_performance(self, start_date, end_date):
         """Get sales performance metrics for the date range"""
-        # Count of leads generated (assuming all opportunities represent leads)
+
+        # Leads generated (stage = 'New Lead')
         leads_generated = Opportunity.objects.filter(
-            created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date,
-            current_stage__name = "New Lead"
+            created_timestamp__range=(start_date, end_date),
+            current_stage__name="New Lead"
         ).count()
-        
-        # Count of quotes sent
+
+        # Quotes sent (stage = 'Quote Sent')
         quotes_sent = Opportunity.objects.filter(
-            created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date,
+            created_timestamp__range=(start_date, end_date),
             current_stage__name='Quote Sent'
         ).count()
 
-        print("1222",Opportunity.objects.filter(current_stage__name='Quote Sent'))
-        
-        # Count of jobs booked
+        # Jobs booked (stage = 'Quote Booked' or 'Won')
         jobs_booked = Opportunity.objects.filter(
-            created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date,
-            current_stage__name='Quote Booked'
+            created_timestamp__range=(start_date, end_date),
+            current_stage__name__in=['Quote Booked', 'Won']  # Assuming both indicate booking
         ).count()
 
+        # Jobs won (stage = 'Won')
         jobs_won = Opportunity.objects.filter(
-            created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date,
+            created_timestamp__range=(start_date, end_date),
             current_stage__name='Won'
         ).count()
-        
-        # Calculate conversion rate
-        conversion_rate = 0
-        if quotes_sent > 0:
-            conversion_rate = (jobs_booked / quotes_sent) * 100
-        
-        # Calculate average job value
-        total_sales = Opportunity.objects.filter(
-            created_timestamp__gte=start_date,
-            created_timestamp__lte=end_date,
-            status='won'
-        ).aggregate(total=Sum('value'))['total'] or 0
-        
-        avg_job_value = 0
-        if jobs_booked > 0:
-            avg_job_value = total_sales / jobs_booked
 
-        print("jobs won: ", jobs_won)
-        
+        # Total sales from 'Won' status
+        total_sales = Opportunity.objects.filter(
+            created_timestamp__range=(start_date, end_date),
+            status='won'  # Assuming 'status' field also tracks won/lost
+        ).aggregate(total=Sum('value'))['total'] or 0.0
+
+        # Conversion rate: (jobs booked / quotes sent) * 100
+        conversion_rate = (jobs_booked / quotes_sent) * 100 if quotes_sent else 0.0
+
+        # Average job value: total sales / jobs booked
+        avg_job_value = (total_sales / jobs_booked) if jobs_booked else 0.0
+
         return {
             "leads_generated": leads_generated,
             "quotes_sent": quotes_sent,
             "jobs_booked": jobs_booked,
-            "jobs_won":jobs_won,
             "conversion_rate": round(conversion_rate, 2),
             "average_job_value": round(avg_job_value, 2),
-            "total_sales": round(total_sales, 2)
         }
+
     
     def get_lead_source_breakdown(self, start_date, end_date):
         """Get breakdown of leads by source for the date range"""
@@ -279,3 +273,112 @@ class DashboardAPIView(GenericAPIView):
             start_date = now().date()
         end_date = now().date()
         return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+    
+
+
+
+
+# views.py
+import os
+from django.http import HttpResponse
+from django.contrib.admin.views.decorators import staff_member_required
+from django.conf import settings
+
+@staff_member_required
+def view_logs(request):
+    """View to display log files - only accessible to staff"""
+    log_type = request.GET.get('type', 'ghl_sync')
+    
+    log_files = {
+        'ghl_sync': 'logs/ghl_sync_rotating.log',
+        'django': 'logs/ghl_sync.log',
+    }
+    
+    log_file = log_files.get(log_type, 'logs/ghl_sync_rotating.log')
+    log_path = os.path.join(settings.BASE_DIR, log_file)
+    
+    try:
+        with open(log_path, 'r') as f:
+            # Get last 100 lines
+            lines = f.readlines()
+            last_lines = lines[-100:] if len(lines) > 100 else lines
+            content = ''.join(last_lines)
+            
+        html_content = f"""
+        <html>
+        <head>
+            <title>GHL Sync Logs</title>
+            <style>
+                body {{ font-family: monospace; background: #1e1e1e; color: #d4d4d4; }}
+                .log-container {{ padding: 20px; }}
+                .log-content {{ 
+                    background: #2d2d30; 
+                    padding: 15px; 
+                    border-radius: 5px; 
+                    white-space: pre-wrap; 
+                    overflow-x: auto;
+                }}
+                .nav {{ padding: 10px; background: #333; }}
+                .nav a {{ color: #4CAF50; margin-right: 20px; text-decoration: none; }}
+            </style>
+        </head>
+        <body>
+            <div class="nav">
+                <a href="?type=ghl_sync">GHL Sync Logs</a>
+                <a href="?type=django">Django Logs</a>
+                <span style="float: right; color: #888;">Last 100 lines</span>
+            </div>
+            <div class="log-container">
+                <h2>Logs: {log_type}</h2>
+                <div class="log-content">{content}</div>
+            </div>
+        </body>
+        </html>
+        """
+        return HttpResponse(html_content)
+        
+    except FileNotFoundError:
+        return HttpResponse(f"Log file not found: {log_path}")
+    except Exception as e:
+        return HttpResponse(f"Error reading log file: {str(e)}")
+
+
+
+
+
+
+class RevenueMetricsView(APIView):
+
+    permission_classes = [AllowAny]
+    
+    def get(self, request):
+        from datetime import timedelta, date
+        today = now().date()
+        start_of_year = today.replace(month=1, day=1)
+        start_of_month = today.replace(day=1)
+        start_of_quarter = date(today.year, ((today.month - 1) // 3) * 3 + 1, 1)
+
+        # Optional period for cash collected
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+        start_date = date.fromisoformat(start_date_str) if start_date_str else start_of_month
+        end_date = date.fromisoformat(end_date_str) if end_date_str else today
+
+        week2_start = today + timedelta(days=7)
+        week2_end = today + timedelta(days=14)
+
+        def total_value(qs):
+            return qs.aggregate(total=Sum("value"))["total"] or 0.0
+
+        queryset = Opportunity.objects.all()
+
+        data = {
+            "revenue_ytd": total_value(queryset.filter(created_timestamp__date__gte=start_of_year)),
+            "revenue_mtd": total_value(queryset.filter(created_timestamp__date__gte=start_of_month)),
+            "revenue_qtd": total_value(queryset.filter(created_timestamp__date__gte=start_of_quarter)),
+            "cash_collected": total_value(queryset.filter(created_timestamp__date__range=(start_date, end_date), status="won")),
+            "projected_revenue_week2": total_value(queryset.filter(created_timestamp__date__range=(week2_start, week2_end))),
+            "pipeline_value": total_value(queryset),
+        }
+
+        return Response(RevenueMetricsSerializer(data).data)

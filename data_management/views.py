@@ -14,7 +14,7 @@ from .models import Pipeline, PipelineStage, Contact, Opportunity
 from .serializers import DashboardSerializer  # We'll create this next
 from django.utils.timezone import now
 from rest_framework.views import APIView
-from .serializers import RevenueMetricsSerializer
+from .serializers import RevenueMetricsSerializer, OpportunitySerializer
 from rest_framework.permissions import AllowAny
 
 
@@ -382,3 +382,82 @@ class RevenueMetricsView(APIView):
         }
 
         return Response(RevenueMetricsSerializer(data).data)
+    
+
+
+from rest_framework.pagination import PageNumberPagination
+
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.exceptions import ValidationError
+
+
+class OpportunityListGenericView(ListAPIView):
+    """
+    Alternative implementation using DRF Generic Views with filtering.
+    More suitable if you want built-in pagination, filtering, and other DRF features.
+    """
+    serializer_class = OpportunitySerializer
+    filter_backends = [DjangoFilterBackend]
+    pagination_class = CustomPagination  # optional override
+
+    
+    def get_queryset(self):
+        queryset = Opportunity.objects.select_related(
+            'contact', 'pipeline', 'current_stage', 'current_stage__pipeline'
+        ).order_by('-created_timestamp')
+        
+        # Get and validate required parameters
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+        
+        if not start_date or not end_date:
+            raise ValidationError({
+                'error': 'Both start_date and end_date are required parameters',
+                'message': 'Please provide dates in YYYY-MM-DD format'
+            })
+        
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError({
+                'error': 'Invalid date format',
+                'message': 'Please provide dates in YYYY-MM-DD format'
+            })
+        
+        if start_date_obj > end_date_obj:
+            raise ValidationError({
+                'error': 'Invalid date range',
+                'message': 'start_date cannot be later than end_date'
+            })
+        
+        # Apply date filter
+        queryset = queryset.filter(
+            created_timestamp__date__gte=start_date_obj,
+            created_timestamp__date__lte=end_date_obj
+        )
+        
+        # Apply optional filters
+        source = self.request.query_params.get('source')
+        if source:
+            queryset = queryset.filter(contact__source__iexact=source)
+        
+        pipeline_stage = self.request.query_params.get('pipeline_name')
+        if pipeline_stage:
+            try:
+                # pipeline_stage_id = int(pipeline_stage)
+                queryset = queryset.filter(current_stage__name=pipeline_stage)
+            except (ValueError, TypeError):
+                raise ValidationError({
+                    'error': 'Invalid pipeline_stage parameter',
+                    'message': 'pipeline_stage must be a valid integer ID'
+                })
+        
+        return queryset

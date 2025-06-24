@@ -416,32 +416,30 @@ class OpportunityListGenericView(ListAPIView):
         # Get and validate required parameters
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
+
+
+        
+        if not start_date or not end_date:
+            start_date, end_date = self.get_default_date_range()
+
+            
+        start_date = datetime.strptime(start_date, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date, '%Y-%m-%d')
+        
+        # Ensure end_date is inclusive by setting it to the end of the day
+        end_date = end_date.replace(hour=23, minute=59, second=59)
         
         if not start_date or not end_date:
             raise ValidationError({
                 'error': 'Both start_date and end_date are required parameters',
                 'message': 'Please provide dates in YYYY-MM-DD format'
             })
-        
-        try:
-            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-        except ValueError:
-            raise ValidationError({
-                'error': 'Invalid date format',
-                'message': 'Please provide dates in YYYY-MM-DD format'
-            })
-        
-        if start_date_obj > end_date_obj:
-            raise ValidationError({
-                'error': 'Invalid date range',
-                'message': 'start_date cannot be later than end_date'
-            })
+
+
         
         # Apply date filter
         queryset = queryset.filter(
-            created_timestamp__date__gte=start_date_obj,
-            created_timestamp__date__lte=end_date_obj
+            created_timestamp__range=(start_date, end_date),
         )
         
 
@@ -459,7 +457,9 @@ class OpportunityListGenericView(ListAPIView):
         if source:
             mapped_sources = source_map.get(source)
             if mapped_sources:
-                queryset = queryset.filter(contact__source__in=mapped_sources)
+                print("mapped source:", mapped_sources)
+                queryset = queryset.filter(created_by_source__in=mapped_sources)
+                print(len(queryset))
             else:
                 # If no mapping found, fallback to exact match
                 queryset = queryset.filter(contact__source__iexact=source)

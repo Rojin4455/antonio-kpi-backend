@@ -444,10 +444,25 @@ class OpportunityListGenericView(ListAPIView):
             created_timestamp__date__lte=end_date_obj
         )
         
+
+        source_map = {
+            'Google Ads': ['Google Ads', 'Google Advertising', 'google Ads'],
+            'GBP Organic': ['Organic Google', 'Google Maps', 'Organic google'],
+            'Facebook Groups': ['FB Community Group', 'FB Community G', 'Facebook Community Group', 'Facebook Ad', 'Instagram'],
+            'Referrals': ['Client Referral', 'Client referral', 'Word of mouth', 'Word Of Mouth', 'Referral', 'BNI'],
+            'Door Knocking': ['Door Knocking', 'Door knocking']
+        }
+
+
         # Apply optional filters
         source = self.request.query_params.get('source')
         if source:
-            queryset = queryset.filter(contact__source__iexact=source)
+            mapped_sources = source_map.get(source)
+            if mapped_sources:
+                queryset = queryset.filter(contact__source__in=mapped_sources)
+            else:
+                # If no mapping found, fallback to exact match
+                queryset = queryset.filter(contact__source__iexact=source)
         
         pipeline_stage = self.request.query_params.get('pipeline_name')
         if pipeline_stage:

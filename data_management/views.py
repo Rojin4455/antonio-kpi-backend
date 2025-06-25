@@ -175,9 +175,10 @@ class DashboardAPIView(GenericAPIView):
         ).count()
 
         # Jobs booked (stage = 'Quote Booked' or 'Won')
+        #! Needs to check 'Quote Booked' is present in db
         jobs_booked = Opportunity.objects.filter(
             created_timestamp__range=(start_date, end_date),
-            current_stage__name__in=['Quote Booked', 'Won']  # Assuming both indicate booking
+            current_stage__name__in=['Quote Booked', 'Won']
         ).count()
 
         # Jobs won (stage = 'Won')
@@ -192,8 +193,15 @@ class DashboardAPIView(GenericAPIView):
             status='won'  # Assuming 'status' field also tracks won/lost
         ).aggregate(total=Sum('value'))['total'] or 0.0
 
+        jobs_lost = Opportunity.objects.filter(
+            created_timestamp__range=(start_date, end_date),
+            current_stage__name='Lost'
+        ).count()
+
+        total_closed = jobs_won + jobs_lost
+
         # Conversion rate: (jobs booked / quotes sent) * 100
-        conversion_rate = (jobs_booked / quotes_sent) * 100 if quotes_sent else 0.0
+        conversion_rate = (jobs_won / total_closed ) * 100 if total_closed else 0.0
 
         # Average job value: total sales / jobs booked
         avg_job_value = (total_sales / jobs_booked) if jobs_booked else 0.0

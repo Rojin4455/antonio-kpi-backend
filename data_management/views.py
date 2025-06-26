@@ -177,9 +177,10 @@ class DashboardAPIView(GenericAPIView):
  
 
         # Jobs booked (stage = 'Quote Booked' or 'Won')
+        #! Needs to check 'Quote Booked' is present in db
         jobs_booked = Opportunity.objects.filter(
             created_timestamp__range=(start_date, end_date),
-            current_stage__name__in=['Quote Booked']
+            current_stage__name__in=['Quote Booked', 'Won']
         ).count()
 
         # Jobs won (stage = 'Won')
@@ -199,8 +200,11 @@ class DashboardAPIView(GenericAPIView):
             status='won'  # Assuming 'status' field also tracks won/lost
         ).aggregate(total=Sum('value'))['total'] or 0.0
 
+
+        total_closed = jobs_won + jobs_lost
+
         # Conversion rate: (jobs booked / quotes sent) * 100
-        conversion_rate = (jobs_booked / quotes_sent) * 100 if quotes_sent else 0.0
+        conversion_rate = (jobs_won / total_closed ) * 100 if total_closed else 0.0
 
         # Average job value: total sales / jobs booked
         avg_job_value = (total_sales / jobs_booked) if jobs_booked else 0.0
@@ -264,8 +268,9 @@ class DashboardAPIView(GenericAPIView):
         next_30_days_cash = Opportunity.objects.filter(
             created_timestamp__gte=today,
             created_timestamp__lte=next_30_days_end,
-            status__in=['booked', 'in_progress', 'quoted']
-        ).aggregate(total=Sum('value'))['total'] or 0
+            ).filter(
+            Q(status__iexact='quote sent') | Q(status__iexact='awaiting deposit') | Q(status__iexact='won')
+            ).aggregate(total=Sum('value'))['total'] or 0
         
         return {
             "this_week": round(this_week_cash, 2),

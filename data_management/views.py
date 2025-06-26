@@ -263,8 +263,9 @@ class DashboardAPIView(GenericAPIView):
         next_30_days_cash = Opportunity.objects.filter(
             created_timestamp__gte=today,
             created_timestamp__lte=next_30_days_end,
-            status__in=['booked', 'in_progress', 'quoted']
-        ).aggregate(total=Sum('value'))['total'] or 0
+            ).filter(
+            Q(status__iexact='quote sent') | Q(status__iexact='awaiting deposit') | Q(status__iexact='won')
+            ).aggregate(total=Sum('value'))['total'] or 0
         
         return {
             "this_week": round(this_week_cash, 2),
